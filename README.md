@@ -27,12 +27,27 @@ A modern, beautifully formatted calendar application for the terminal written in
   - Runs out-of-the-box on Python 3.8+.
 - **Interactive Mode**:
   - Simply run `python calendar_app.py` without arguments for an interactive guide.
+- **🌐 Web Edition (New)**:
+  - Gorgeous modern web interface with dual views: Interactive Grid & Terminal CRT box preview.
+  - Interactive CLI command bar with instant parsing and generator.
+  - 5 themes: Cyber Neon, Nord Frost, Retro Matrix, Tokyo Night, and Daylight Clean.
+  - Date statistics inspector and persistent day notes/reminders.
+  - Export to raw Unicode text, .txt download, and print.
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Interactive Mode
+### 1. Launch Web Edition
+Start the web interface with automatic browser launch:
+```bash
+python calendar_app.py --web
+# or
+python serve_web.py
+```
+Or simply open `index.html` in any browser!
+
+### 2. Interactive Terminal Mode
 Run the calendar without arguments to launch the interactive prompt:
 ```bash
 python calendar_app.py
