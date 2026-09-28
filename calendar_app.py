@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Terminal Calendar Launcher
-==========================
+Calendar Launcher
+=================
 Wrapper and entry point for term_calendar.
 """
 

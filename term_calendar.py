@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Terminal Calendar Application
-=============================
+Calendar Application
+====================
 Displays beautifully formatted calendars in the terminal with customizable
 border styles, ANSI colors, weekend highlighting, today highlighting, and
 multi-column grid layouts for single or multiple months.
@@ -510,7 +510,7 @@ def interactive_prompt() -> Tuple[int, List[int]]:
     print()
     banner_bar = "═" * 50
     print(theme.month_title(banner_bar))
-    print(theme.month_title("         📅  TERMINAL CALENDAR EXPLORER  📅        "))
+    print(theme.month_title("              📅  CALENDAR EXPLORER  📅             "))
     print(theme.month_title(banner_bar))
     print(theme.info("Easily view single months, month ranges, or full years."))
     print()

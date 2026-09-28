@@ -1,4 +1,4 @@
-# Terminal Calendar (Python)
+# Calendar (Python)
 
 A modern, beautifully formatted calendar application for the terminal written in Python. It supports flexible month and year inputs, customizable Unicode box-drawing borders, ANSI colors, weekend highlighting, current date indicator, and responsive multi-column layouts.
 

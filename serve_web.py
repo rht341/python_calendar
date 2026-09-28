@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-Web Server Launcher for Terminal Calendar
-=========================================
+Web Server Launcher for Calendar
+================================
 Starts a lightweight local HTTP server and automatically opens
-the modern Web Edition of Terminal Calendar in the default browser.
+the modern Web Edition of Calendar in the default browser.
 
 Zero dependencies required — uses only Python standard library.
 """
@@ -52,7 +52,7 @@ def start_server(port: Optional[int] = None, open_browser: bool = True) -> None:
 
     banner = f"""
 ╭────────────────────────────────────────────────────────────╮
-│             TERMINAL CALENDAR — WEB EDITION                │
+│                    CALENDAR — WEB EDITION                  │
 │                                                            │
 │  ✨ Server URL: \033[1;36m{url:<41}\033[0m  │
 │  📁 Root Dir:   \033[90m{base_dir[:41]:<41}\033[0m  │

@@ -1,5 +1,5 @@
 /**
- * Terminal Calendar Web Edition
+ * Calendar Web Edition
  * Pure Vanilla JavaScript implementation of term_calendar.py
  * Features:
  * - Dynamic interactive grid with day inspector & notes
