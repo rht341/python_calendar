@@ -207,10 +207,34 @@ def parse_month(val: str) -> int:
     raise ValueError(f"Unrecognized month '{val}'. Use 1-12, 'Jan'-'Dec', or full month names.")
 
 
+def _dedupe_preserve_order(items: List[int]) -> List[int]:
+    """Remove duplicate months while preserving the original order."""
+    seen = set()
+    unique: List[int] = []
+    for item in items:
+        if item not in seen:
+            seen.add(item)
+            unique.append(item)
+    return unique
+
+
+def _split_month_range(value: str) -> Optional[Tuple[str, str]]:
+    """Return a normalized month range as (start, end) if a range delimiter is found."""
+    delimiters = ["..", " through ", " thru ", " to ", "—", "–", "-"]
+    for delim in delimiters:
+        if delim in value:
+            left, right = value.split(delim, 1)
+            left = left.strip()
+            right = right.strip()
+            if left and right:
+                return left, right
+    return None
+
+
 def parse_month_range(val: str) -> List[int]:
     """
     Parse a month specification string into a list of month integers (1-12).
-    
+
     Supports:
     - Single month: "5", "May", "mar"
     - Ranges: "3-8", "3..8", "3 to 8", "March-August", "Jan to Mar"
@@ -221,48 +245,27 @@ def parse_month_range(val: str) -> List[int]:
     s = val.strip().lower()
     if not s:
         raise ValueError("Month input cannot be empty.")
-    
+
     if s in ("all", "*", "year", "full"):
         return list(range(1, 13))
-    
-    # Handle comma-separated lists
+
     if "," in s:
         months: List[int] = []
-        parts = s.split(",")
-        for part in parts:
+        for part in s.split(","):
             part = part.strip()
             if part:
                 months.extend(parse_month_range(part))
-        # Keep original order, remove duplicates
-        seen = set()
-        unique_months = []
-        for m in months:
-            if m not in seen:
-                seen.add(m)
-                unique_months.append(m)
-        return unique_months
-    
-    # Check for range delimiters: "-", "–", "—", "..", " to ", " through "
-    range_match = None
-    for delim in ["..", " through ", " thru ", " to ", "—", "–", "-"]:
-        if delim in s:
-            parts = s.split(delim, 1)
-            p1 = parts[0].strip()
-            p2 = parts[1].strip()
-            if p1 and p2:
-                range_match = (p1, p2)
-                break
-    
-    if range_match:
-        m_start = parse_month(range_match[0])
-        m_end = parse_month(range_match[1])
+        return _dedupe_preserve_order(months)
+
+    range_match = _split_month_range(s)
+    if range_match is not None:
+        start_text, end_text = range_match
+        m_start = parse_month(start_text)
+        m_end = parse_month(end_text)
         if m_start <= m_end:
             return list(range(m_start, m_end + 1))
-        else:
-            # Wrap-around across year boundary, e.g. Nov-Feb: [11, 12, 1, 2]
-            return list(range(m_start, 13)) + list(range(1, m_end + 1))
-            
-    # Single month
+        return list(range(m_start, 13)) + list(range(1, m_end + 1))
+
     return [parse_month(s)]
 
 
@@ -466,12 +469,13 @@ def detect_color_support() -> bool:
         return False
     if os.environ.get("TERM") == "dumb":
         return False
+
     # Check if stdout is an interactive tty or Windows Terminal
     if not hasattr(sys.stdout, "isatty") or not sys.stdout.isatty():
         # Allow override if CLICOLOR_FORCE is set
-        if os.environ.get("CLICOLOR_FORCE", "0") != "0":
-            return True
-        return False
+        return os.environ.get("CLICOLOR_FORCE", "0") != "0"
+
+    return True
 def configure_console_output() -> None:
     """Ensure standard output and error support UTF-8 encoding and ANSI processing."""
     if hasattr(sys.stdout, "reconfigure"):
@@ -653,6 +657,25 @@ Examples:
     return parser
 
 
+def _is_likely_year(token: str) -> bool:
+    """Return True when the token likely represents a year instead of a month."""
+    token_strip = token.strip()
+    if token_strip.isdigit():
+        val = int(token_strip)
+        return val > 12 or len(token_strip) == 4
+    return False
+
+
+def build_runtime_options(args: Any) -> Dict[str, Any]:
+    """Package CLI options into a single runtime config dictionary."""
+    return {
+        "style": args.style,
+        "first_day": calendar.SUNDAY if args.sunday else calendar.MONDAY,
+        "columns": args.columns,
+        "no_color": args.no_color,
+    }
+
+
 def parse_cli_args(args: Any) -> Tuple[int, List[int], Dict[str, Any]]:
     """
     Resolve year, months, and render options from parsed CLI arguments.
@@ -671,31 +694,20 @@ def parse_cli_args(args: Any) -> Tuple[int, List[int], Dict[str, Any]]:
     # Process positional inputs if flags weren't fully provided
     positional = list(args.inputs)
     if positional:
-        # If user passed two positional args: e.g. ["2026", "5"] or ["5", "2026"] or ["2026", "3-8"]
         if len(positional) >= 2:
             arg1, arg2 = positional[0], positional[1]
-            # Try to identify which one is year and which is month
-            # Year is usually a 4-digit number, or a number > 12
-            def is_likely_year(token: str) -> bool:
-                token_strip = token.strip()
-                if token_strip.isdigit():
-                    val = int(token_strip)
-                    return val > 12 or len(token_strip) == 4
-                return False
 
-            if is_likely_year(arg1) and not is_likely_year(arg2):
+            if _is_likely_year(arg1) and not _is_likely_year(arg2):
                 if year is None:
                     year = parse_year(arg1)
                 if months is None:
                     months = parse_month_range(arg2)
-            elif is_likely_year(arg2) and not is_likely_year(arg1):
+            elif _is_likely_year(arg2) and not _is_likely_year(arg1):
                 if year is None:
                     year = parse_year(arg2)
                 if months is None:
                     months = parse_month_range(arg1)
             else:
-                # Default order: first is year or month?
-                # If first parses as year and second as month range
                 try:
                     y_test = parse_year(arg1)
                     m_test = parse_month_range(arg2)
@@ -713,13 +725,10 @@ def parse_cli_args(args: Any) -> Tuple[int, List[int], Dict[str, Any]]:
 
         elif len(positional) == 1:
             arg = positional[0]
-            # Could be a year (e.g. 2026) -> show full year
-            # Or could be a month / month range -> use current year
             if arg.strip().isdigit() and (len(arg.strip()) == 4 or int(arg.strip()) > 12):
                 if year is None:
                     year = parse_year(arg)
                 if months is None:
-                    # Single year passed, display entire year
                     months = list(range(1, 13))
             else:
                 try:
@@ -734,52 +743,45 @@ def parse_cli_args(args: Any) -> Tuple[int, List[int], Dict[str, Any]]:
                     if months is None:
                         months = list(range(1, 13))
 
-    # If neither flags nor positional args were given, check interactive
     if year is None and months is None:
         if args.interactive or not sys.stdin.isatty():
-            # If not interactive tty and no args, default to current month and year
             year = today.year
             months = [today.month]
         else:
-            # Interactive prompt
             year, months = interactive_prompt()
 
-    # Final fallbacks if only one was provided
     if year is None:
         year = today.year
     if months is None:
         months = [today.month]
 
-    options = {
-        "style": args.style,
-        "first_day": calendar.SUNDAY if args.sunday else calendar.MONDAY,
-        "columns": args.columns,
-        "no_color": args.no_color,
-    }
-    return year, months, options
+    return year, months, build_runtime_options(args)
 
 
 def main() -> None:
     """Main CLI entry point."""
     configure_console_output()
     parser = build_arg_parser()
-    args = parser.parse_args()
 
-    if args.interactive:
-        year, months = interactive_prompt()
-        options = {
-            "style": args.style,
-            "first_day": calendar.SUNDAY if args.sunday else calendar.MONDAY,
-            "columns": args.columns,
-            "no_color": args.no_color,
-        }
-    else:
-        try:
+    try:
+        args = parser.parse_args()
+    except KeyboardInterrupt:
+        print("\nExiting.", file=sys.stderr)
+        sys.exit(130)
+
+    try:
+        if args.interactive:
+            year, months = interactive_prompt()
+            options = build_runtime_options(args)
+        else:
             year, months, options = parse_cli_args(args)
-        except ValueError as err:
-            theme = ColorTheme(enabled=not args.no_color and detect_color_support())
-            print(theme.error(f"Error: {err}"), file=sys.stderr)
-            sys.exit(1)
+    except KeyboardInterrupt:
+        print("\nExiting.", file=sys.stderr)
+        sys.exit(130)
+    except ValueError as err:
+        theme = ColorTheme(enabled=not args.no_color and detect_color_support())
+        print(theme.error(f"Error: {err}"), file=sys.stderr)
+        sys.exit(1)
 
     # Determine color support
     use_color = not options["no_color"] and detect_color_support()
@@ -799,9 +801,12 @@ def main() -> None:
         columns=options["columns"]
     )
 
-    print()
-    print(output)
-    print()
+    try:
+        print()
+        print(output)
+        print()
+    except BrokenPipeError:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

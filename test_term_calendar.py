@@ -5,6 +5,7 @@ Unit tests for term_calendar.py
 
 import calendar
 import datetime
+import sys
 import unittest
 
 from term_calendar import (
@@ -19,6 +20,7 @@ from term_calendar import (
     BOX_STYLES,
     build_arg_parser,
     parse_cli_args,
+    detect_color_support,
 )
 
 
@@ -79,6 +81,10 @@ class TestMonthRangeParser(unittest.TestCase):
         self.assertEqual(parse_month_range("1, 3, 5"), [1, 3, 5])
         self.assertEqual(parse_month_range("Jan, Mar, May"), [1, 3, 5])
         self.assertEqual(parse_month_range("1-2, 5-6"), [1, 2, 5, 6])
+
+    def test_repeated_values_are_deduplicated(self):
+        self.assertEqual(parse_month_range("1, 1, 2, 2-3"), [1, 2, 3])
+        self.assertEqual(parse_month_range("Mar, Mar, Apr, Apr"), [3, 4])
 
     def test_wrap_around_range(self):
         self.assertEqual(parse_month_range("11-2"), [11, 12, 1, 2])
@@ -211,6 +217,20 @@ class TestTerminalCalendar(unittest.TestCase):
         lines = output.split("\n")
         # 11 lines for row 1 + 1 blank line separator + 11 lines for row 2 = 23 lines
         self.assertEqual(len(lines), 23)
+
+
+class TestColorSupport(unittest.TestCase):
+    def test_detect_color_support_returns_bool_for_tty(self):
+        original_stdout = sys.stdout
+        try:
+            class DummyStdout:
+                def isatty(self):
+                    return True
+
+            sys.stdout = DummyStdout()
+            self.assertIsInstance(detect_color_support(), bool)
+        finally:
+            sys.stdout = original_stdout
 
 
 class TestCliArgs(unittest.TestCase):
